@@ -42,7 +42,8 @@ if uploaded_file:
             for well in block:
                 color_map[well] = colors[i % len(colors)]
         for well in st.session_state.selected_wells:
-            color_map[well] = "gray"
+            if well not in color_map:
+                color_map[well] = "gray"
 
         for i, row in enumerate(ROWS):
             for j, col in enumerate(COLS):
@@ -68,7 +69,7 @@ if uploaded_file:
             dragmode=False
         )
 
-        click_data = st.plotly_chart(fig, use_container_width=False)
+        st.plotly_chart(fig, use_container_width=False)
 
         clicked = st.experimental_get_query_params().get("clicked", [None])[0]
         if clicked and clicked in all_wells:
