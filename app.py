@@ -52,8 +52,14 @@ if uploaded_file:
                 fig.add_shape(type="rect", x0=j, x1=j+1, y0=-i, y1=-(i+1), line=dict(color="black"), fillcolor=fillcolor)
                 fig.add_annotation(x=j+0.5, y=-(i+0.5), text=well, showarrow=False)
 
-        fig.update_layout(height=400, width=800, margin=dict(l=10, r=10, t=10, b=10), xaxis=dict(visible=False), yaxis=dict(visible=False))
-        st.plotly_chart(fig)
+        fig.update_layout(
+            height=400, width=800,
+            margin=dict(l=10, r=10, t=10, b=10),
+            xaxis=dict(visible=False, fixedrange=True),
+            yaxis=dict(visible=False, fixedrange=True),
+            dragmode=False
+        )
+        st.plotly_chart(fig, use_container_width=False)
 
         if st.button("Export Tidy CSV"):
             rows = []
