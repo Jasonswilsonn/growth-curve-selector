@@ -18,7 +18,7 @@ if uploaded_file:
         st.error("CSV must contain a 'Time [s]' column.")
     else:
         timepoints = df["Time [s]"].values
-        well_data = {col: df[col].values for col in df.columns if col != "Time [s]"]}
+        well_data = {col: df[col].values for col in df.columns if col != "Time [s]"}
 
         all_wells = [f"{r}{c}" for r in ROWS for c in COLS if f"{r}{c}" in well_data]
 
