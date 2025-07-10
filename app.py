@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 ROWS = list("ABCDEFGH")
 COLS = list(range(1, 13))
@@ -17,49 +18,70 @@ if uploaded_file:
         st.error("CSV must contain a 'Time [s]' column.")
     else:
         timepoints = df["Time [s]"].values
-        well_data = {col: df[col].values for col in df.columns if col != "Time [s]"}
+        well_data = {col: df[col].values for col in df.columns if col != "Time [s]"]
 
         all_wells = [f"{r}{c}" for r in ROWS for c in COLS if f"{r}{c}" in well_data]
-        grid = np.array(all_wells).reshape(8, 12)
 
-        st.markdown("### Select Replicate Sets")
-
+        if "selected_wells" not in st.session_state:
+            st.session_state.selected_wells = set()
         if "replicate_sets" not in st.session_state:
             st.session_state.replicate_sets = []
 
-        selected_wells = st.multiselect("Select wells for a replicate set (hold Ctrl/Shift to multi-select):", all_wells)
-        if st.button("Add Replicate Set"):
-            if selected_wells:
-                st.session_state.replicate_sets.append(selected_wells)
+        def toggle_well_selection(clicked_well):
+            if clicked_well in st.session_state.selected_wells:
+                st.session_state.selected_wells.remove(clicked_well)
+            else:
+                st.session_state.selected_wells.add(clicked_well)
 
-        if st.button("Reset All Selections"):
-            st.session_state.replicate_sets = []
-
-        st.markdown("### Plate Map")
-        z = [[f"{r}{c}" if f"{r}{c}" in well_data else "" for c in COLS] for r in ROWS]
-
+        st.markdown("### Plate Map (Click wells to select)")
+        fig = go.Figure()
         colors = ["lightblue", "lightgreen", "plum", "orange", "khaki", "lightpink", "lightcyan", "wheat"]
-        well_color_map = {}
+
+        color_map = {}
         for i, block in enumerate(st.session_state.replicate_sets):
             for well in block:
-                well_color_map[well] = colors[i % len(colors)]
+                color_map[well] = colors[i % len(colors)]
+        for well in st.session_state.selected_wells:
+            color_map[well] = "gray"
 
-        fig = go.Figure()
         for i, row in enumerate(ROWS):
             for j, col in enumerate(COLS):
                 well = f"{row}{col}"
-                fillcolor = well_color_map.get(well, "white")
-                fig.add_shape(type="rect", x0=j, x1=j+1, y0=-i, y1=-(i+1), line=dict(color="black"), fillcolor=fillcolor)
-                fig.add_annotation(x=j+0.5, y=-(i+0.5), text=well, showarrow=False)
+                if well not in well_data:
+                    continue
+                fillcolor = color_map.get(well, "white")
+                fig.add_shape(
+                    type="rect", x0=j, x1=j+1, y0=-i, y1=-(i+1),
+                    line=dict(color="black"), fillcolor=fillcolor
+                )
+                fig.add_annotation(
+                    x=j+0.5, y=-(i+0.5), text=well, showarrow=False,
+                    font=dict(color="black"),
+                    hovertext=f"Click to select {well}",
+                )
 
         fig.update_layout(
-            height=400, width=800,
-            margin=dict(l=10, r=10, t=10, b=10),
-            xaxis=dict(visible=False, fixedrange=True),
-            yaxis=dict(visible=False, fixedrange=True),
+            height=500, width=1000,
+            margin=dict(l=20, r=20, t=20, b=20),
+            xaxis=dict(visible=False, fixedrange=True, range=[0, 12]),
+            yaxis=dict(visible=False, fixedrange=True, range=[-8, 0]),
             dragmode=False
         )
-        st.plotly_chart(fig, use_container_width=False)
+
+        click_data = st.plotly_chart(fig, use_container_width=False)
+
+        clicked = st.experimental_get_query_params().get("clicked", [None])[0]
+        if clicked and clicked in all_wells:
+            toggle_well_selection(clicked)
+
+        if st.button("Add Replicate Set"):
+            if st.session_state.selected_wells:
+                st.session_state.replicate_sets.append(list(st.session_state.selected_wells))
+                st.session_state.selected_wells.clear()
+
+        if st.button("Reset All Selections"):
+            st.session_state.selected_wells.clear()
+            st.session_state.replicate_sets = []
 
         if st.button("Export Tidy CSV"):
             rows = []
@@ -73,7 +95,7 @@ if uploaded_file:
                     continue
                 mean = np.mean(data_matrix, axis=0)
                 std = np.std(data_matrix, axis=0)
-                label = block[0]  # Use first well as condition label
+                label = block[0]
                 for i, t in enumerate(timepoints):
                     rows.append({"Time": round(t, 3), "Condition": label, "Mean": mean[i], "SD": std[i]})
 
